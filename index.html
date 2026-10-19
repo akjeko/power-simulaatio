@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tilastollisen voiman simulaatio</title>
+  <style>
+    :root {
+      --background:#f7f8fb; --foreground:#18202b; --muted-foreground:#667085;
+      --border:#d9dee8; --viz-series-1:#3157d5; --viz-series-2:#d85b32;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color-scheme:light;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--background);color:var(--foreground)}
+    main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:32px 0 40px}
+    .viz-controls{display:flex;flex-wrap:wrap;gap:16px}
+    .form-label{font-size:14px;font-weight:650;color:#344054}
+    .form-range{width:100%;accent-color:var(--viz-series-1)}
+    .form-select{width:100%;min-height:38px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--foreground)}
+    .viz-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(16,24,40,.05)}
+    .viz-stat-value{font-size:32px;line-height:1.15;font-weight:760;margin:4px 0}
+    .text-muted{color:var(--muted-foreground)} .text-small{font-size:13px}
+    .tabular-nums{font-variant-numeric:tabular-nums}
+    @media(max-width:760px){main{width:min(100% - 20px,1180px);padding-top:20px}.viz-grid{grid-template-columns:1fr}.viz-controls{gap:12px}}
+  </style>
+</head>
+<body>
+<main>
+<div id="power-simulaatio" class="power-sim">
+  <style>
+    #power-simulaatio { color: var(--foreground); background: transparent; }
+    #power-simulaatio .sim-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:14px; padding-right:96px; }
+    #power-simulaatio .sim-head h2 { margin:0; }
+    #power-simulaatio .sim-head p { margin:4px 0 0; color:var(--muted-foreground); }
+    #power-simulaatio .viz-controls { margin-bottom:14px; align-items:flex-end; }
+    #power-simulaatio .control { flex:1 1 150px; min-width:135px; }
+    #power-simulaatio .control-head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; margin-bottom:4px; }
+    #power-simulaatio .control output { color:var(--foreground); font-weight:500; }
+    #power-simulaatio .viz-grid { margin-bottom:14px; }
+    #power-simulaatio .viz-stat-value { color:var(--foreground); }
+    #power-simulaatio .chart-wrap { width:100%; min-height:330px; }
+    #power-simulaatio svg { display:block; width:100%; height:auto; overflow:visible; }
+    #power-simulaatio .axis text, #power-simulaatio .axis-title, #power-simulaatio .point-label { fill:var(--foreground); font-size:12px; }
+    #power-simulaatio .axis path, #power-simulaatio .axis line, #power-simulaatio .grid line, #power-simulaatio .frame { stroke:var(--border); }
+    #power-simulaatio .grid path { display:none; }
+    #power-simulaatio .curve { fill:none; stroke:var(--viz-series-1); stroke-width:3; }
+    #power-simulaatio .target-line { stroke:var(--muted-foreground); stroke-width:1.5; stroke-dasharray:6 5; }
+    #power-simulaatio .current-guide { stroke:var(--border); stroke-width:1.5; }
+    #power-simulaatio .current-point { fill:var(--viz-series-1); stroke:var(--background); stroke-width:3; }
+    #power-simulaatio .required-point { fill:var(--background); stroke:var(--viz-series-2); stroke-width:3; }
+    #power-simulaatio .legend { display:flex; flex-wrap:wrap; gap:16px; margin-top:4px; color:var(--muted-foreground); }
+    #power-simulaatio .legend span { display:inline-flex; align-items:center; gap:7px; }
+    #power-simulaatio .swatch { width:20px; height:3px; background:var(--viz-series-1); }
+    #power-simulaatio .swatch.target { height:0; background:none; border-top:2px dashed var(--muted-foreground); }
+    #power-simulaatio .detail { margin-top:12px; min-height:24px; color:var(--foreground); }
+    #power-simulaatio .assumption { margin-top:6px; color:var(--muted-foreground); }
+    @media (max-width:600px) {
+      #power-simulaatio .sim-head { padding-right:0; }
+      #power-simulaatio .chart-wrap { min-height:270px; }
+    }
+  </style>
+
+  <div class="sim-head">
+    <div>
+      <h2>Tilastollisen voiman simulaatio</h2>
+      <p>Kahden ryhmän välisen ensisijaisen vertailun normaaliapproksimaatio</p>
+    </div>
+  </div>
+
+  <div class="viz-controls" aria-label="Simulaation oletukset">
+    <label class="control form-label" for="ps-effect">
+      <span class="control-head"><span>Vaikutuskoko <em>d</em></span><output id="ps-effect-out">0,25</output></span>
+      <input id="ps-effect" class="form-range" type="range" min="0.05" max="0.60" value="0.25" step="0.01">
+    </label>
+    <label class="control form-label" for="ps-n">
+      <span class="control-head"><span>Kokonaisotos</span><output id="ps-n-out">600</output></span>
+      <input id="ps-n" class="form-range" type="range" min="60" max="3000" value="600" step="20">
+    </label>
+    <label class="control form-label" for="ps-rel">
+      <span class="control-head"><span>Mittarin reliabiliteetti</span><output id="ps-rel-out">0,80</output></span>
+      <input id="ps-rel" class="form-range" type="range" min="0.40" max="1" value="0.80" step="0.05">
+    </label>
+    <label class="control form-label" for="ps-groups">
+      <span class="control-head"><span>Koeryhmät</span></span>
+      <select id="ps-groups" class="form-select">
+        <option value="2">2 ryhmää</option>
+        <option value="3">3 ryhmää</option>
+      </select>
+    </label>
+    <label class="control form-label" for="ps-target">
+      <span class="control-head"><span>Tavoiteltu power</span></span>
+      <select id="ps-target" class="form-select">
+        <option value="0.80">80 %</option>
+        <option value="0.90">90 %</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="viz-grid">
+    <div class="card viz-stat">
+      <div class="text-muted">Nykyinen power</div>
+      <div id="ps-power" class="viz-stat-value tabular-nums">–</div>
+      <div id="ps-power-context" class="text-small text-muted">–</div>
+    </div>
+    <div class="card viz-stat">
+      <div class="text-muted">Tarvittava kokonaisotos</div>
+      <div id="ps-required" class="viz-stat-value tabular-nums">–</div>
+      <div id="ps-required-context" class="text-small text-muted">–</div>
+    </div>
+    <div class="card viz-stat">
+      <div class="text-muted">Havaintoja ryhmää kohti</div>
+      <div id="ps-per-group" class="viz-stat-value tabular-nums">–</div>
+      <div class="text-small text-muted">Tasasuuri ryhmäjako</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap" id="ps-chart"></div>
+  <div class="legend" aria-hidden="true">
+    <span><i class="swatch"></i>Power otoskoon funktiona</span>
+    <span><i class="swatch target"></i>Tavoiteltu power</span>
+  </div>
+  <div id="ps-detail" class="detail" aria-live="polite"></div>
+  <div class="assumption text-small">Oletukset: kaksisuuntainen testi, α = 0,05, tasasuuret ryhmät. Kolmen ryhmän asetelmassa kuvio koskee yhtä ennalta määriteltyä kahden ryhmän vertailua.</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script>
+    (() => {
+      const root = document.getElementById('power-simulaatio');
+      const q = id => root.querySelector('#' + id);
+      const els = {
+        effect:q('ps-effect'), n:q('ps-n'), rel:q('ps-rel'), groups:q('ps-groups'), target:q('ps-target'),
+        effectOut:q('ps-effect-out'), nOut:q('ps-n-out'), relOut:q('ps-rel-out'),
+        power:q('ps-power'), powerContext:q('ps-power-context'), required:q('ps-required'),
+        requiredContext:q('ps-required-context'), perGroup:q('ps-per-group'), detail:q('ps-detail'), chart:q('ps-chart')
+      };
+      const fmt2 = x => x.toLocaleString('fi-FI', {minimumFractionDigits:2, maximumFractionDigits:2});
+      const fmtPct = x => (100*x).toLocaleString('fi-FI', {maximumFractionDigits:0}) + ' %';
+      const erf = x => {
+        const sign = x < 0 ? -1 : 1; x = Math.abs(x);
+        const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+        const t=1/(1+p*x);
+        const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+        return sign*y;
+      };
+      const pnorm = z => 0.5*(1+erf(z/Math.SQRT2));
+      const power = (N,d,reliability,k) => {
+        const per=N/k;
+        const delta=d*Math.sqrt(reliability)*Math.sqrt(per/2);
+        const z=1.959963984540054;
+        return Math.max(0,Math.min(1,1-pnorm(z-delta)+pnorm(-z-delta)));
+      };
+      const requiredN = (d,r,k,target) => {
+        for(let N=k*10; N<=20000; N+=k){ if(power(N,d,r,k)>=target) return N; }
+        return null;
+      };
+      function draw(){
+        const d=+els.effect.value, N=+els.n.value, r=+els.rel.value, k=+els.groups.value, target=+els.target.value;
+        const p=power(N,d,r,k), req=requiredN(d,r,k,target);
+        els.effectOut.textContent=fmt2(d); els.nOut.textContent=N.toLocaleString('fi-FI'); els.relOut.textContent=fmt2(r);
+        els.power.textContent=fmtPct(p);
+        els.powerContext.textContent=p>=target?'Tavoite saavutetaan':'Tavoite ei vielä täyty';
+        els.required.textContent=req?req.toLocaleString('fi-FI'):'yli 20 000';
+        els.requiredContext.textContent=fmtPct(target)+' voimaan';
+        els.perGroup.textContent=Math.floor(N/k).toLocaleString('fi-FI');
+        const diff=req?req-N:null;
+        els.detail.textContent=p>=target
+          ? `Nykyinen otos ylittää ${fmtPct(target)} tavoitteen noin ${Math.max(0,N-req).toLocaleString('fi-FI')} havainnolla.`
+          : `Tavoitteen saavuttaminen edellyttää samoilla oletuksilla noin ${diff.toLocaleString('fi-FI')} lisähavaintoa.`;
+
+        const width=Math.max(320,els.chart.clientWidth||700), height=330;
+        const margin={top:18,right:34,bottom:52,left:64};
+        d3.select(els.chart).selectAll('*').remove();
+        const svg=d3.select(els.chart).append('svg').attr('viewBox',`0 0 ${width} ${height}`).attr('role','img').attr('aria-label','Tilastollinen voima kokonaisotoksen funktiona');
+        svg.append('title').text('Tilastollinen voima kokonaisotoksen funktiona');
+        svg.append('desc').text(`Nykyinen power on ${fmtPct(p)} otoskoolla ${N}.`);
+        const maxN=Math.max(1000,Math.min(6000,Math.ceil(Math.max(N,req||N)*1.25/100)*100));
+        const data=d3.range(k*10,maxN+1,Math.max(k,Math.round(maxN/180/k)*k)).map(n=>({n,p:power(n,d,r,k)}));
+        const x=d3.scaleLinear().domain([0,maxN]).range([margin.left,width-margin.right]);
+        const y=d3.scaleLinear().domain([0,1]).range([height-margin.bottom,margin.top]);
+        svg.append('rect').attr('class','frame').attr('data-chart-frame','').attr('x',margin.left).attr('y',margin.top).attr('width',width-margin.left-margin.right).attr('height',height-margin.top-margin.bottom).attr('fill','none');
+        svg.append('g').attr('class','grid').attr('transform',`translate(${margin.left},0)`).call(d3.axisLeft(y).tickValues([0,.2,.4,.6,.8,1]).tickSize(-(width-margin.left-margin.right)).tickFormat(''));
+        svg.append('g').attr('class','axis').attr('transform',`translate(0,${height-margin.bottom})`).call(d3.axisBottom(x).ticks(width<520?4:6).tickFormat(v=>v.toLocaleString('fi-FI')));
+        svg.append('g').attr('class','axis').attr('transform',`translate(${margin.left},0)`).call(d3.axisLeft(y).tickValues([0,.2,.4,.6,.8,1]).tickFormat(v=>Math.round(v*100)+' %'));
+        svg.append('text').attr('class','axis-title').attr('data-axis','x').attr('x',(margin.left+width-margin.right)/2).attr('y',height-10).attr('text-anchor','middle').text('Kokonaisotos');
+        svg.append('text').attr('class','axis-title').attr('data-axis','y').attr('transform','rotate(-90)').attr('x',-(margin.top+height-margin.bottom)/2).attr('y',16).attr('text-anchor','middle').text('Tilastollinen voima');
+        svg.append('line').attr('class','target-line').attr('x1',margin.left).attr('x2',width-margin.right).attr('y1',y(target)).attr('y2',y(target));
+        svg.append('path').datum(data).attr('class','curve').attr('d',d3.line().x(v=>x(v.n)).y(v=>y(v.p)).curve(d3.curveMonotoneX));
+        svg.append('line').attr('class','current-guide').attr('x1',x(N)).attr('x2',x(N)).attr('y1',y(0)).attr('y2',y(p));
+        svg.append('circle').attr('class','current-point').attr('cx',x(N)).attr('cy',y(p)).attr('r',6).attr('data-tooltip',`Nykyinen otos: ${N.toLocaleString('fi-FI')} · power ${fmtPct(p)}`);
+        if(req && req<=maxN){
+          svg.append('circle').attr('class','required-point').attr('cx',x(req)).attr('cy',y(target)).attr('r',6).attr('data-tooltip',`Tavoite saavutetaan noin otoskoolla ${req.toLocaleString('fi-FI')}`);
+        }
+      }
+      ['input','change'].forEach(evt=>root.addEventListener(evt,e=>{ if(e.target.matches('input,select')) draw(); }));
+      const ro=new ResizeObserver(draw); ro.observe(els.chart); draw();
+    })();
+  </script>
+</div>
+</main>
+</body>
+</html>

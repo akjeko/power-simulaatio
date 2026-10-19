@@ -64,7 +64,7 @@
   <div class="sim-head">
     <div>
       <h2>Tilastollisen voiman simulaatio</h2>
-      <p>Kahden ryhmän välisen ensisijaisen vertailun normaaliapproksimaatio</p>
+      <p>Kahden ryhmän standardoidun keskiarvoeron testi, jossa testisuureen jakauma arvioidaan normaalijakaumalla</p>
     </div>
   </div>
 
@@ -89,7 +89,7 @@
       </select>
     </label>
     <label class="control form-label" for="ps-target">
-      <span class="control-head"><span>Tavoiteltu power</span></span>
+      <span class="control-head"><span>Tavoiteltu tilastollinen voima</span></span>
       <select id="ps-target" class="form-select">
         <option value="0.80">80 %</option>
         <option value="0.90">90 %</option>
@@ -99,7 +99,7 @@
 
   <div class="viz-grid">
     <div class="card viz-stat">
-      <div class="text-muted">Nykyinen power</div>
+      <div class="text-muted">Nykyinen tilastollinen voima</div>
       <div id="ps-power" class="viz-stat-value tabular-nums">–</div>
       <div id="ps-power-context" class="text-small text-muted">–</div>
     </div>
@@ -117,11 +117,11 @@
 
   <div class="chart-wrap" id="ps-chart"></div>
   <div class="legend" aria-hidden="true">
-    <span><i class="swatch"></i>Power otoskoon funktiona</span>
-    <span><i class="swatch target"></i>Tavoiteltu power</span>
+    <span><i class="swatch"></i>Tilastollinen voima otoskoon funktiona</span>
+    <span><i class="swatch target"></i>Tavoiteltu tilastollinen voima</span>
   </div>
   <div id="ps-detail" class="detail" aria-live="polite"></div>
-  <div class="assumption text-small">Oletukset: kaksisuuntainen testi, α = 0,05, tasasuuret ryhmät. Kolmen ryhmän asetelmassa kuvio koskee yhtä ennalta määriteltyä kahden ryhmän vertailua.</div>
+  <div class="assumption text-small"><strong>Normaaliapproksimaatio:</strong> kahden ryhmän standardoidun keskiarvoeron testisuureen jakauma oletetaan likimain normaaliksi. Laskelma on siten suuntaa-antava, ja approksimaatio tarkentuu yleensä otoskoon kasvaessa. Muut oletukset: kaksisuuntainen testi, α = 0,05 ja tasasuuret ryhmät. Kolmen ryhmän asetelmassa kuvio koskee yhtä ennalta määriteltyä kahden ryhmän vertailua.</div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script>
@@ -173,7 +173,7 @@
         d3.select(els.chart).selectAll('*').remove();
         const svg=d3.select(els.chart).append('svg').attr('viewBox',`0 0 ${width} ${height}`).attr('role','img').attr('aria-label','Tilastollinen voima kokonaisotoksen funktiona');
         svg.append('title').text('Tilastollinen voima kokonaisotoksen funktiona');
-        svg.append('desc').text(`Nykyinen power on ${fmtPct(p)} otoskoolla ${N}.`);
+        svg.append('desc').text(`Nykyinen tilastollinen voima on ${fmtPct(p)} otoskoolla ${N}.`);
         const maxN=Math.max(1000,Math.min(6000,Math.ceil(Math.max(N,req||N)*1.25/100)*100));
         const data=d3.range(k*10,maxN+1,Math.max(k,Math.round(maxN/180/k)*k)).map(n=>({n,p:power(n,d,r,k)}));
         const x=d3.scaleLinear().domain([0,maxN]).range([margin.left,width-margin.right]);
@@ -187,7 +187,7 @@
         svg.append('line').attr('class','target-line').attr('x1',margin.left).attr('x2',width-margin.right).attr('y1',y(target)).attr('y2',y(target));
         svg.append('path').datum(data).attr('class','curve').attr('d',d3.line().x(v=>x(v.n)).y(v=>y(v.p)).curve(d3.curveMonotoneX));
         svg.append('line').attr('class','current-guide').attr('x1',x(N)).attr('x2',x(N)).attr('y1',y(0)).attr('y2',y(p));
-        svg.append('circle').attr('class','current-point').attr('cx',x(N)).attr('cy',y(p)).attr('r',6).attr('data-tooltip',`Nykyinen otos: ${N.toLocaleString('fi-FI')} · power ${fmtPct(p)}`);
+        svg.append('circle').attr('class','current-point').attr('cx',x(N)).attr('cy',y(p)).attr('r',6).attr('data-tooltip',`Nykyinen otos: ${N.toLocaleString('fi-FI')} · tilastollinen voima ${fmtPct(p)}`);
         if(req && req<=maxN){
           svg.append('circle').attr('class','required-point').attr('cx',x(req)).attr('cy',y(target)).attr('r',6).attr('data-tooltip',`Tavoite saavutetaan noin otoskoolla ${req.toLocaleString('fi-FI')}`);
         }

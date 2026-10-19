@@ -70,16 +70,12 @@
 
   <div class="viz-controls" aria-label="Simulaation oletukset">
     <label class="control form-label" for="ps-effect">
-      <span class="control-head"><span>Vaikutuskoko <em>d</em></span><output id="ps-effect-out">0,25</output></span>
+      <span class="control-head"><span>Odotettu vaikutuskoko <em>d</em></span><output id="ps-effect-out">0,25</output></span>
       <input id="ps-effect" class="form-range" type="range" min="0.05" max="0.60" value="0.25" step="0.01">
     </label>
     <label class="control form-label" for="ps-n">
       <span class="control-head"><span>Kokonaisotos</span><output id="ps-n-out">600</output></span>
       <input id="ps-n" class="form-range" type="range" min="60" max="3000" value="600" step="20">
-    </label>
-    <label class="control form-label" for="ps-rel">
-      <span class="control-head"><span>Mittarin reliabiliteetti</span><output id="ps-rel-out">0,80</output></span>
-      <input id="ps-rel" class="form-range" type="range" min="0.40" max="1" value="0.80" step="0.05">
     </label>
     <label class="control form-label" for="ps-groups">
       <span class="control-head"><span>Koeryhmät</span></span>
@@ -121,7 +117,7 @@
     <span><i class="swatch target"></i>Tavoiteltu tilastollinen voima</span>
   </div>
   <div id="ps-detail" class="detail" aria-live="polite"></div>
-  <div class="assumption text-small"><strong>Normaaliapproksimaatio:</strong> kahden ryhmän standardoidun keskiarvoeron testisuureen jakauma oletetaan likimain normaaliksi. Laskelma on siten suuntaa-antava, ja approksimaatio tarkentuu yleensä otoskoon kasvaessa. Muut oletukset: kaksisuuntainen testi, α = 0,05 ja tasasuuret ryhmät. Kolmen ryhmän asetelmassa kuvio koskee yhtä ennalta määriteltyä kahden ryhmän vertailua.</div>
+  <div class="assumption text-small"><strong>Normaaliapproksimaatio:</strong> kahden ryhmän standardoidun keskiarvoeron testisuureen jakauma oletetaan likimain normaaliksi. Laskelma on siten suuntaa-antava, ja approksimaatio tarkentuu yleensä otoskoon kasvaessa. Vaikutuskoko <em>d</em> määritellään havaitun tulosmuuttujan perusteella, joten reliabiliteettia ei syötetä erikseen. Mittausvirhe näkyy käytännössä pienempänä havaittavana vaikutuskokona. Muut oletukset: kaksisuuntainen testi, α = 0,05 ja tasasuuret ryhmät. Kolmen ryhmän asetelmassa kuvio koskee yhtä ennalta määriteltyä kahden ryhmän vertailua.</div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script>
@@ -129,8 +125,8 @@
       const root = document.getElementById('power-simulaatio');
       const q = id => root.querySelector('#' + id);
       const els = {
-        effect:q('ps-effect'), n:q('ps-n'), rel:q('ps-rel'), groups:q('ps-groups'), target:q('ps-target'),
-        effectOut:q('ps-effect-out'), nOut:q('ps-n-out'), relOut:q('ps-rel-out'),
+        effect:q('ps-effect'), n:q('ps-n'), groups:q('ps-groups'), target:q('ps-target'),
+        effectOut:q('ps-effect-out'), nOut:q('ps-n-out'),
         power:q('ps-power'), powerContext:q('ps-power-context'), required:q('ps-required'),
         requiredContext:q('ps-required-context'), perGroup:q('ps-per-group'), detail:q('ps-detail'), chart:q('ps-chart')
       };
@@ -144,20 +140,20 @@
         return sign*y;
       };
       const pnorm = z => 0.5*(1+erf(z/Math.SQRT2));
-      const power = (N,d,reliability,k) => {
+      const power = (N,d,k) => {
         const per=N/k;
-        const delta=d*Math.sqrt(reliability)*Math.sqrt(per/2);
+        const delta=d*Math.sqrt(per/2);
         const z=1.959963984540054;
         return Math.max(0,Math.min(1,1-pnorm(z-delta)+pnorm(-z-delta)));
       };
-      const requiredN = (d,r,k,target) => {
-        for(let N=k*10; N<=20000; N+=k){ if(power(N,d,r,k)>=target) return N; }
+      const requiredN = (d,k,target) => {
+        for(let N=k*10; N<=20000; N+=k){ if(power(N,d,k)>=target) return N; }
         return null;
       };
       function draw(){
-        const d=+els.effect.value, N=+els.n.value, r=+els.rel.value, k=+els.groups.value, target=+els.target.value;
-        const p=power(N,d,r,k), req=requiredN(d,r,k,target);
-        els.effectOut.textContent=fmt2(d); els.nOut.textContent=N.toLocaleString('fi-FI'); els.relOut.textContent=fmt2(r);
+        const d=+els.effect.value, N=+els.n.value, k=+els.groups.value, target=+els.target.value;
+        const p=power(N,d,k), req=requiredN(d,k,target);
+        els.effectOut.textContent=fmt2(d); els.nOut.textContent=N.toLocaleString('fi-FI');
         els.power.textContent=fmtPct(p);
         els.powerContext.textContent=p>=target?'Tavoite saavutetaan':'Tavoite ei vielä täyty';
         els.required.textContent=req?req.toLocaleString('fi-FI'):'yli 20 000';
@@ -175,7 +171,7 @@
         svg.append('title').text('Tilastollinen voima kokonaisotoksen funktiona');
         svg.append('desc').text(`Nykyinen tilastollinen voima on ${fmtPct(p)} otoskoolla ${N}.`);
         const maxN=Math.max(1000,Math.min(6000,Math.ceil(Math.max(N,req||N)*1.25/100)*100));
-        const data=d3.range(k*10,maxN+1,Math.max(k,Math.round(maxN/180/k)*k)).map(n=>({n,p:power(n,d,r,k)}));
+        const data=d3.range(k*10,maxN+1,Math.max(k,Math.round(maxN/180/k)*k)).map(n=>({n,p:power(n,d,k)}));
         const x=d3.scaleLinear().domain([0,maxN]).range([margin.left,width-margin.right]);
         const y=d3.scaleLinear().domain([0,1]).range([height-margin.bottom,margin.top]);
         svg.append('rect').attr('class','frame').attr('data-chart-frame','').attr('x',margin.left).attr('y',margin.top).attr('width',width-margin.left-margin.right).attr('height',height-margin.top-margin.bottom).attr('fill','none');

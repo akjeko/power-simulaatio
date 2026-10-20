@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interaktiivinen simulaatio satunnaistamisesta, ryhmätasapainosta ja satunnaistamisen onnistumisen arvioinnista.">
+  <title>Satunnaistamisen simulaatio</title>
+  <style>
+    :root {
+      --background:#f7f8fb; --foreground:#18202b; --card:#ffffff; --card-foreground:#18202b;
+      --muted:#eef1f6; --muted-foreground:#667085; --border:#d9dee8; --input:#cbd2de;
+      --primary:#1f3f9e; --primary-foreground:#ffffff; --destructive:#b42318;
+      --viz-series-1:#3157d5; --viz-series-2:#d85b32; --viz-series-3:#16856b;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color-scheme:light;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--background);color:var(--foreground)}
+    main{width:min(1080px,calc(100% - 32px));margin:0 auto;padding:32px 0 42px}
+    h2{font-size:clamp(1.55rem,3vw,2.25rem);line-height:1.15;margin:0 0 22px;font-weight:700}
+    p{line-height:1.55}
+    .viz-controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+    .form-label{display:flex;flex-direction:column;gap:7px;flex:1 1 170px;font-size:14px;font-weight:650;color:#344054}
+    .form-range{width:100%;accent-color:var(--viz-series-1)}
+    .form-select{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--input);border-radius:8px;background:var(--card);color:var(--foreground);font:inherit}
+    .btn{min-height:40px;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--foreground);font:inherit;font-weight:650;cursor:pointer}
+    .btn:hover{background:var(--muted)}
+    .btn-primary{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+    .btn-primary:hover{filter:brightness(.96);background:var(--primary)}
+    .viz-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .card{background:var(--card);color:var(--card-foreground);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(16,24,40,.05)}
+    .viz-stat-value{font-size:clamp(1.35rem,3vw,2rem);line-height:1.15;font-weight:750;margin:5px 0}
+    .text-muted{color:var(--muted-foreground)}
+    .text-small{font-size:13px}
+    .text-destructive{color:var(--destructive)}
+    .tabular-nums{font-variant-numeric:tabular-nums}
+    .table-responsive{width:100%;overflow-x:auto}
+    .table{width:100%;border-collapse:collapse;background:transparent}
+    .table th,.table td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+    .table thead th{font-size:13px;color:var(--muted-foreground)}
+    .table-sm th,.table-sm td{padding:8px}
+    .text-end{text-align:right!important}
+    button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid rgba(49,87,213,.28);outline-offset:2px}
+    @media(max-width:760px){
+      main{width:min(100% - 20px,1080px);padding-top:20px}
+      .viz-grid{grid-template-columns:1fr}
+      .viz-controls{align-items:stretch}
+      .btn{width:100%}
+    }
+  </style>
+</head>
+<body>
+<main>
+<div id="randomization-sim">
+  <h2>Satunnaistaminen ei takaa identtisiä ryhmiä</h2>
+
+  <div class="viz-controls" aria-label="Simulaation asetukset">
+    <label class="form-label" for="rs-n">Otoskoko <span id="rs-n-value" class="tabular-nums">120</span>
+      <input id="rs-n" class="form-range" type="range" min="30" max="600" step="30" value="120">
+    </label>
+    <label class="form-label" for="rs-groups">Ryhmien määrä
+      <select id="rs-groups" class="form-select">
+        <option value="2">2 ryhmää</option>
+        <option value="3" selected>3 ryhmää</option>
+      </select>
+    </label>
+    <label class="form-label" for="rs-method">Ryhmäänjako
+      <select id="rs-method" class="form-select">
+        <option value="random" selected>Satunnainen</option>
+        <option value="biased">Virheellinen jako</option>
+      </select>
+    </label>
+    <button id="rs-run" class="btn btn-primary" type="button">Satunnaista uudelleen</button>
+    <button id="rs-repeat" class="btn" type="button">Toista 200 kertaa</button>
+  </div>
+
+  <div class="viz-grid" aria-live="polite">
+    <div class="card viz-stat">
+      <div class="text-muted">Toteutus</div>
+      <div id="rs-status" class="viz-stat-value">Suunnitelman mukainen</div>
+      <div id="rs-status-detail" class="text-small text-muted">Kaikki havainnot jaettiin riippumatta taustatekijöistä.</div>
+    </div>
+    <div class="card viz-stat">
+      <div class="text-muted">Suurin standardoitu ero</div>
+      <div id="rs-smd" class="viz-stat-value tabular-nums">0,00</div>
+      <div class="text-small text-muted">Kuvaa tämän toteutuneen jaon epätasapainoa.</div>
+    </div>
+    <div class="card viz-stat">
+      <div class="text-muted">Pienin tasapainotestin p-arvo</div>
+      <div id="rs-p" class="viz-stat-value tabular-nums">0,000</div>
+      <div class="text-small text-muted">Ei ratkaise, onnistuiko satunnaistaminen.</div>
+    </div>
+  </div>
+
+  <div id="rs-chart-wrap">
+    <svg id="rs-chart" role="img" aria-labelledby="rs-chart-title rs-chart-desc"></svg>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr id="rs-head"><th>Taustamuuttuja</th></tr></thead>
+      <tbody id="rs-body"></tbody>
+    </table>
+  </div>
+
+  <p id="rs-repeat-result" class="text-small" aria-live="polite"></p>
+  <p id="rs-takeaway"><strong>Arvioi toteutusta:</strong> käytettiinkö suunniteltua satunnaismenetelmää ja päätyikö jokainen havainto yhteen ryhmään? Ryhmäerot kuvaavat toteutuneen jaon sattumanvaraista epätasapainoa.</p>
+</div>
+
+<style>
+  #randomization-sim { color: var(--foreground); }
+  #randomization-sim .viz-controls { margin-bottom: 16px; }
+  #randomization-sim .viz-grid { margin-bottom: 18px; }
+  #randomization-sim #rs-chart-wrap { width: 100%; margin: 4px 0 12px; }
+  #randomization-sim #rs-chart { width: 100%; display: block; }
+  #randomization-sim .rs-axis { stroke: var(--border); stroke-width: 1; }
+  #randomization-sim .rs-zero { stroke: var(--muted-foreground); stroke-width: 1; }
+  #randomization-sim .rs-label, #randomization-sim .rs-tick { fill: var(--foreground); font-size: 12px; }
+  #randomization-sim .rs-tick { fill: var(--muted-foreground); }
+  #randomization-sim .rs-g1 { fill: var(--viz-series-1); }
+  #randomization-sim .rs-g2 { fill: var(--viz-series-2); }
+  #randomization-sim .rs-g3 { fill: var(--viz-series-3); }
+  #randomization-sim .rs-line { stroke: var(--border); stroke-width: 2; }
+  #randomization-sim #rs-repeat-result { min-height: 22px; margin: 8px 0; }
+  #randomization-sim #rs-takeaway { margin-top: 10px; }
+  @media (max-width: 560px) {
+    #randomization-sim .viz-controls { align-items: stretch; }
+  }
+</style>
+
+<script>
+(() => {
+  const root = document.getElementById('randomization-sim');
+  const nInput = root.querySelector('#rs-n');
+  const nValue = root.querySelector('#rs-n-value');
+  const groupsInput = root.querySelector('#rs-groups');
+  const methodInput = root.querySelector('#rs-method');
+  const statusEl = root.querySelector('#rs-status');
+  const statusDetailEl = root.querySelector('#rs-status-detail');
+  const smdEl = root.querySelector('#rs-smd');
+  const pEl = root.querySelector('#rs-p');
+  const headEl = root.querySelector('#rs-head');
+  const bodyEl = root.querySelector('#rs-body');
+  const repeatEl = root.querySelector('#rs-repeat-result');
+  const svg = root.querySelector('#rs-chart');
+  let current = null;
+
+  const labels = ['A', 'B', 'C'];
+  const variables = [
+    { key: 'age', label: 'Ikä', digits: 1 },
+    { key: 'attitude', label: 'Lähtöasenne (1–5)', digits: 2 },
+    { key: 'woman', label: 'Naisten osuus', digits: 2 }
+  ];
+
+  function randomNormal(mean, sd) {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function makePopulation(n) {
+    return Array.from({ length: n }, (_, id) => {
+      const age = Math.max(18, Math.min(80, randomNormal(48, 16)));
+      const woman = Math.random() < 0.52 ? 1 : 0;
+      const attitude = Math.max(1, Math.min(5, 3 + 0.012 * (age - 48) + 0.18 * woman + randomNormal(0, 0.85)));
+      return { id, age, woman, attitude, group: 0 };
+    });
+  }
+
+  function shuffle(values) {
+    const a = values.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function assign(pop, k, method) {
+    if (method === 'random') {
+      shuffle(pop).forEach((d, i) => { d.group = i % k; });
+    } else {
+      pop.slice().sort((a, b) => (a.attitude + a.age / 100) - (b.attitude + b.age / 100))
+        .forEach((d, i) => { d.group = Math.min(k - 1, Math.floor(i * k / pop.length)); });
+    }
+    return pop;
+  }
+
+  function mean(a) { return a.reduce((s, x) => s + x, 0) / a.length; }
+  function variance(a) {
+    const m = mean(a);
+    return a.reduce((s, x) => s + (x - m) ** 2, 0) / Math.max(1, a.length - 1);
+  }
+  function erf(x) {
+    const sign = x < 0 ? -1 : 1;
+    x = Math.abs(x);
+    const t = 1 / (1 + 0.3275911 * x);
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return sign * y;
+  }
+  function normalTwoSided(z) { return Math.max(0, Math.min(1, 1 - erf(Math.abs(z) / Math.sqrt(2)))); }
+
+  function summarize(pop, k) {
+    const groups = Array.from({ length: k }, (_, g) => pop.filter(d => d.group === g));
+    const rows = variables.map(v => {
+      const arrays = groups.map(g => g.map(d => d[v.key]));
+      const means = arrays.map(mean);
+      let maxSmd = 0;
+      let minP = 1;
+      for (let a = 0; a < k; a++) for (let b = a + 1; b < k; b++) {
+        const va = variance(arrays[a]);
+        const vb = variance(arrays[b]);
+        const pooled = Math.sqrt((va + vb) / 2) || 1;
+        const smd = Math.abs(means[a] - means[b]) / pooled;
+        maxSmd = Math.max(maxSmd, smd);
+        const se = Math.sqrt(va / arrays[a].length + vb / arrays[b].length) || 1;
+        minP = Math.min(minP, normalTwoSided((means[a] - means[b]) / se));
+      }
+      const all = pop.map(d => d[v.key]);
+      const totalMean = mean(all);
+      const totalSd = Math.sqrt(variance(all)) || 1;
+      return { ...v, means, maxSmd, minP, standardized: means.map(m => (m - totalMean) / totalSd) };
+    });
+    return { groups, rows, maxSmd: Math.max(...rows.map(r => r.maxSmd)), minP: Math.min(...rows.map(r => r.minP)) };
+  }
+
+  function fmt(x, digits = 2) { return x.toFixed(digits).replace('.', ','); }
+
+  function drawChart(summary, k) {
+    const width = Math.max(320, root.querySelector('#rs-chart-wrap').clientWidth);
+    const height = 190;
+    const left = width < 500 ? 118 : 170;
+    const right = 24;
+    const top = 28;
+    const rowGap = 48;
+    const x = z => left + ((Math.max(-1, Math.min(1, z)) + 1) / 2) * (width - left - right);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.innerHTML = `<title id="rs-chart-title">Ryhmien standardoidut taustamuuttujien keskiarvot</title><desc id="rs-chart-desc">Nolla tarkoittaa koko otoksen keskiarvoa. Pisteet näyttävät ryhmien poikkeamat keskihajontoina.</desc>`;
+    [-1, -0.5, 0, 0.5, 1].forEach(t => {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x(t)); line.setAttribute('x2', x(t));
+      line.setAttribute('y1', 18); line.setAttribute('y2', height - 24);
+      line.setAttribute('class', t === 0 ? 'rs-zero' : 'rs-axis');
+      svg.appendChild(line);
+      const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      tx.setAttribute('x', x(t)); tx.setAttribute('y', height - 6); tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('class', 'rs-tick'); tx.textContent = fmt(t, 1);
+      svg.appendChild(tx);
+    });
+    summary.rows.forEach((row, r) => {
+      const y = top + r * rowGap;
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', 4); label.setAttribute('y', y + 4); label.setAttribute('class', 'rs-label'); label.textContent = row.label;
+      svg.appendChild(label);
+      if (k > 1) {
+        const span = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        span.setAttribute('x1', x(Math.min(...row.standardized))); span.setAttribute('x2', x(Math.max(...row.standardized)));
+        span.setAttribute('y1', y); span.setAttribute('y2', y); span.setAttribute('class', 'rs-line'); svg.appendChild(span);
+      }
+      row.standardized.forEach((z, g) => {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', x(z)); c.setAttribute('cy', y); c.setAttribute('r', 7); c.setAttribute('class', `rs-g${g + 1}`);
+        c.setAttribute('data-tooltip', `Ryhmä ${labels[g]}: ${fmt(z, 2)} keskihajontaa koko otoksen keskiarvosta`);
+        svg.appendChild(c);
+      });
+    });
+    const axisTitle = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    axisTitle.setAttribute('x', (left + width - right) / 2); axisTitle.setAttribute('y', height - 6); axisTitle.setAttribute('dy', '-14'); axisTitle.setAttribute('text-anchor', 'middle'); axisTitle.setAttribute('class', 'rs-tick');
+    axisTitle.textContent = 'Poikkeama koko otoksen keskiarvosta (keskihajontaa)'; svg.appendChild(axisTitle);
+  }
+
+  function render() {
+    const n = +nInput.value;
+    const k = +groupsInput.value;
+    const method = methodInput.value;
+    nValue.textContent = n;
+    const pop = assign(makePopulation(n), k, method);
+    current = summarize(pop, k);
+    statusEl.textContent = method === 'random' ? 'Suunnitelman mukainen' : 'Ei suunnitelman mukainen';
+    statusDetailEl.textContent = method === 'random'
+      ? 'Kaikki havainnot jaettiin riippumatta taustatekijöistä.'
+      : 'Lähtöasenne ja ikä vaikuttavat ryhmään sijoittumiseen.';
+    statusEl.classList.toggle('text-destructive', method !== 'random');
+    smdEl.textContent = fmt(current.maxSmd, 2);
+    pEl.textContent = current.minP < 0.001 ? '< 0,001' : fmt(current.minP, 3);
+    headEl.innerHTML = '<th>Taustamuuttuja</th>' + labels.slice(0, k).map((l, i) => `<th class="text-end">Ryhmä ${l}<br><span class="text-small text-muted">n=${current.groups[i].length}</span></th>`).join('') + '<th class="text-end">Suurin ero</th><th class="text-end">p-arvo</th>';
+    bodyEl.innerHTML = current.rows.map(row => `<tr><th>${row.label}</th>${row.means.map(m => `<td class="text-end">${fmt(m, row.digits)}</td>`).join('')}<td class="text-end">${fmt(row.maxSmd, 2)}</td><td class="text-end">${row.minP < 0.001 ? '&lt; 0,001' : fmt(row.minP, 3)}</td></tr>`).join('');
+    repeatEl.textContent = '';
+    drawChart(current, k);
+  }
+
+  function repeat() {
+    const n = +nInput.value;
+    const k = +groupsInput.value;
+    const method = methodInput.value;
+    let anySmallP = 0;
+    let avgMaxSmd = 0;
+    for (let i = 0; i < 200; i++) {
+      const s = summarize(assign(makePopulation(n), k, method), k);
+      if (s.minP < 0.05) anySmallP++;
+      avgMaxSmd += s.maxSmd;
+    }
+    avgMaxSmd /= 200;
+    repeatEl.innerHTML = `<strong>200 toistoa:</strong> ainakin yksi p-arvo oli alle 0,05 yhteensä ${anySmallP} jaossa (${fmt(anySmallP / 2, 1)} %). Keskimääräinen suurin standardoitu ero oli ${fmt(avgMaxSmd, 2)}.`;
+  }
+
+  root.querySelector('#rs-run').addEventListener('click', render);
+  root.querySelector('#rs-repeat').addEventListener('click', repeat);
+  nInput.addEventListener('input', () => { nValue.textContent = nInput.value; });
+  nInput.addEventListener('change', render);
+  groupsInput.addEventListener('change', render);
+  methodInput.addEventListener('change', render);
+  new ResizeObserver(() => { if (current) drawChart(current, +groupsInput.value); }).observe(root.querySelector('#rs-chart-wrap'));
+  render();
+})();
+</script>
+
+</main>
+</body>
+</html>

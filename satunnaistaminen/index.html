@@ -56,7 +56,7 @@
 
   <div class="viz-controls" aria-label="Simulaation asetukset">
     <label class="form-label" for="rs-n">Otoskoko <span id="rs-n-value" class="tabular-nums">120</span>
-      <input id="rs-n" class="form-range" type="range" min="30" max="600" step="30" value="120">
+      <input id="rs-n" class="form-range" type="range" min="30" max="3000" step="30" value="120">
     </label>
     <label class="form-label" for="rs-groups">Ryhmien määrä
       <select id="rs-groups" class="form-select">
@@ -273,7 +273,7 @@
     const n = +nInput.value;
     const k = +groupsInput.value;
     const method = methodInput.value;
-    nValue.textContent = n;
+    nValue.textContent = n.toLocaleString('fi-FI');
     const pop = assign(makePopulation(n), k, method);
     current = summarize(pop, k);
     statusEl.textContent = method === 'random' ? 'Suunnitelman mukainen' : 'Ei suunnitelman mukainen';
@@ -306,7 +306,7 @@
 
   root.querySelector('#rs-run').addEventListener('click', render);
   root.querySelector('#rs-repeat').addEventListener('click', repeat);
-  nInput.addEventListener('input', () => { nValue.textContent = nInput.value; });
+  nInput.addEventListener('input', () => { nValue.textContent = (+nInput.value).toLocaleString('fi-FI'); });
   nInput.addEventListener('change', render);
   groupsInput.addEventListener('change', render);
   methodInput.addEventListener('change', render);

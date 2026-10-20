@@ -45,6 +45,8 @@
     #power-simulaatio .example a { color:var(--viz-series-1); }
     #power-simulaatio .example button { min-height:40px; padding:8px 14px; border:1px solid var(--viz-series-1); border-radius:8px; background:#fff; color:var(--viz-series-1); font:inherit; font-weight:700; cursor:pointer; }
     #power-simulaatio .example button:hover { background:#eef2ff; }
+    #power-simulaatio .example-note { margin-top:10px; padding:10px 12px; border-left:4px solid var(--viz-series-2); background:#fff7f2; border-radius:0 8px 8px 0; }
+    #power-simulaatio .example-tag { align-self:start; display:inline-flex; padding:6px 10px; border-radius:999px; background:#eef2ff; color:var(--viz-series-1); font-size:13px; font-weight:750; white-space:nowrap; }
     #power-simulaatio .viz-stat-value { color:var(--foreground); }
     #power-simulaatio .chart-wrap { width:100%; min-height:330px; }
     #power-simulaatio svg { display:block; width:100%; height:auto; overflow:visible; }
@@ -106,9 +108,21 @@
       <strong>Oikea tutkimusesimerkki: uutistekstin kehystys</strong>
       <p>Marttila ja Koivula (2025): kolme ryhmää ja 456 vastaajaa. Episodinen kehys vähensi moraalisten asenteiden voimakkuutta 0,243 pistettä kontrolliryhmään verrattuna asteikolla 1–5 (<em>B</em> = −0,243).</p>
       <p>Kun tulosmuuttujan keskihajonta oli 1,02, likimääräinen standardoitu vaikutus oli |<em>d</em>| ≈ 0,24.</p>
+      <div class="example-note text-small"><strong>Miten tulos voi olla merkitsevä, vaikka tilastollinen voima jää alle 80 prosentin?</strong> Jos todellinen vaikutus olisi <em>d</em> = 0,24, tämä yksinkertainen laskelma antaa 456 vastaajalla noin 55 prosentin tilastollisen voiman. Se ei tarkoita, ettei merkitsevää tulosta voisi tulla: noin 55 sadasta vastaavasta tutkimuksesta tuottaisi merkitsevän tuloksen. Tämä tutkimus oli yksi niistä. Havaittuun vaikutukseen perustuva laskelma on jälkikäteinen havainnollistus, ei tutkimuksen alkuperäinen otoskokosuunnitelma.</div>
       <div class="source text-small"><a href="https://doi.org/10.1080/03623319.2024.2441897" target="_blank" rel="noopener noreferrer">Marttila &amp; Koivula, The Social Science Journal</a></div>
     </div>
     <button id="ps-load-example" type="button">Lataa tutkimusesimerkki</button>
+  </div>
+
+  <div class="card example">
+    <div>
+      <strong>Toinen tutkimusesimerkki: kehystys × luottamus</strong>
+      <p>Koivula, Marttila ja Koiranen (2024): kolmen ryhmän koe, 455 vastaajaa. Episodisen kehyksen päävaikutus lisärajoitusten kannatukseen oli merkitsevä (<em>B</em> = −0,294, <em>p</em> = 0,001).</p>
+      <p>Institutionaalinen luottamus oli moderaattori. Episodisen kehyksen ja luottamuksen interaktio oli <em>B</em> = 0,218 (<em>SE</em> = 0,119, <em>p</em> = 0,068): kehystyksen yhteys oli voimakkaampi vähän luottavilla, mutta interaktio ei alittanut viiden prosentin merkitsevyysrajaa.</p>
+      <div class="example-note text-small"><strong>Moderaation tilastollinen voima on eri laskelma.</strong> Yllä oleva Cohenin <em>d</em> -laskuri koskee yhtä kahden ryhmän päävaikutusvertailua. Interaktion tilastollinen voima riippuu lisäksi interaktiokertoimen koosta, moderaattorin vaihtelusta, ryhmäjaosta ja mallin muista muuttujista. Siksi sitä ei pidä päätellä suoraan päävaikutuksen <em>d</em>:stä.</div>
+      <div class="source text-small"><a href="https://doi.org/10.1016/j.ssaho.2024.101157" target="_blank" rel="noopener noreferrer">Koivula, Marttila &amp; Koiranen, Social Sciences &amp; Humanities Open</a></div>
+    </div>
+    <span class="example-tag">Moderaatioesimerkki</span>
   </div>
 
   <div class="viz-grid">

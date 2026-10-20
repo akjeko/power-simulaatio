@@ -38,6 +38,13 @@
     #power-simulaatio .control-head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; margin-bottom:4px; }
     #power-simulaatio .control output { color:var(--foreground); font-weight:500; }
     #power-simulaatio .viz-grid { margin-bottom:14px; }
+    #power-simulaatio .example { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; margin-bottom:14px; }
+    #power-simulaatio .example strong { display:block; margin-bottom:5px; }
+    #power-simulaatio .example p { margin:3px 0; line-height:1.45; }
+    #power-simulaatio .example .source { margin-top:7px; color:var(--muted-foreground); }
+    #power-simulaatio .example a { color:var(--viz-series-1); }
+    #power-simulaatio .example button { min-height:40px; padding:8px 14px; border:1px solid var(--viz-series-1); border-radius:8px; background:#fff; color:var(--viz-series-1); font:inherit; font-weight:700; cursor:pointer; }
+    #power-simulaatio .example button:hover { background:#eef2ff; }
     #power-simulaatio .viz-stat-value { color:var(--foreground); }
     #power-simulaatio .chart-wrap { width:100%; min-height:330px; }
     #power-simulaatio svg { display:block; width:100%; height:auto; overflow:visible; }
@@ -58,6 +65,7 @@
     @media (max-width:600px) {
       #power-simulaatio .sim-head { padding-right:0; }
       #power-simulaatio .chart-wrap { min-height:270px; }
+      #power-simulaatio .example { grid-template-columns:1fr; }
     }
   </style>
 
@@ -75,7 +83,7 @@
     </label>
     <label class="control form-label" for="ps-n">
       <span class="control-head"><span>Kokonaisotos</span><output id="ps-n-out">600</output></span>
-      <input id="ps-n" class="form-range" type="range" min="60" max="3000" value="600" step="20">
+      <input id="ps-n" class="form-range" type="range" min="60" max="3000" value="600" step="1">
     </label>
     <label class="control form-label" for="ps-groups">
       <span class="control-head"><span>Koeryhmät</span></span>
@@ -91,6 +99,16 @@
         <option value="0.90">90 %</option>
       </select>
     </label>
+  </div>
+
+  <div class="card example">
+    <div>
+      <strong>Oikea tutkimusesimerkki: uutistekstin kehystys</strong>
+      <p>Marttila ja Koivula (2025): kolme ryhmää ja 456 vastaajaa. Episodinen kehys vähensi moraalisten asenteiden voimakkuutta 0,243 pistettä kontrolliryhmään verrattuna asteikolla 1–5 (<em>B</em> = −0,243).</p>
+      <p>Kun tulosmuuttujan keskihajonta oli 1,02, likimääräinen standardoitu vaikutus oli |<em>d</em>| ≈ 0,24.</p>
+      <div class="source text-small"><a href="https://doi.org/10.1080/03623319.2024.2441897" target="_blank" rel="noopener noreferrer">Marttila &amp; Koivula, The Social Science Journal</a></div>
+    </div>
+    <button id="ps-load-example" type="button">Lataa tutkimusesimerkki</button>
   </div>
 
   <div class="viz-grid">
@@ -129,7 +147,7 @@
         effectOut:q('ps-effect-out'), nOut:q('ps-n-out'),
         power:q('ps-power'), powerContext:q('ps-power-context'), required:q('ps-required'),
         requiredContext:q('ps-required-context'), perGroup:q('ps-per-group'), detail:q('ps-detail'),
-        subtitle:q('ps-subtitle'), chart:q('ps-chart')
+        subtitle:q('ps-subtitle'), loadExample:q('ps-load-example'), chart:q('ps-chart')
       };
       const fmt2 = x => x.toLocaleString('fi-FI', {minimumFractionDigits:2, maximumFractionDigits:2});
       const fmtPct = x => (100*x).toLocaleString('fi-FI', {maximumFractionDigits:0}) + ' %';
@@ -198,6 +216,13 @@
         }
       }
       ['input','change'].forEach(evt=>root.addEventListener(evt,e=>{ if(e.target.matches('input,select')) draw(); }));
+      els.loadExample.addEventListener('click',()=>{
+        els.effect.value='0.24';
+        els.n.value='456';
+        els.groups.value='3';
+        els.target.value='0.80';
+        draw();
+      });
       const ro=new ResizeObserver(draw); ro.observe(els.chart); draw();
     })();
   </script>

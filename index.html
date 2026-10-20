@@ -70,8 +70,8 @@
 
   <div class="viz-controls" aria-label="Simulaation oletukset">
     <label class="control form-label" for="ps-effect">
-      <span class="control-head"><span>Odotettu vaikutuskoko <em>d</em></span><output id="ps-effect-out">0,25</output></span>
-      <input id="ps-effect" class="form-range" type="range" min="0.05" max="0.60" value="0.25" step="0.01">
+      <span class="control-head"><span>Odotettu standardoitu ryhmäero (Cohenin <em>d</em>)</span><output id="ps-effect-out">0,25</output></span>
+      <input id="ps-effect" class="form-range" type="range" min="0" max="1" value="0.25" step="0.01">
     </label>
     <label class="control form-label" for="ps-n">
       <span class="control-head"><span>Kokonaisotos</span><output id="ps-n-out">600</output></span>
@@ -154,19 +154,24 @@
       function draw(){
         const d=+els.effect.value, N=+els.n.value, k=+els.groups.value, target=+els.target.value;
         const p=power(N,d,k), req=requiredN(d,k,target);
+        const noEffect=d===0;
         els.subtitle.textContent=k===3
           ? 'Kolmen ryhmän koe, jossa tarkastellaan yhtä ennalta määriteltyä kahden ryhmän vertailua'
           : 'Kahden ryhmän koe, jossa tarkastellaan standardoitua keskiarvoeroa';
         els.effectOut.textContent=fmt2(d); els.nOut.textContent=N.toLocaleString('fi-FI');
         els.power.textContent=fmtPct(p);
         els.powerContext.textContent=p>=target?'Tavoite saavutetaan':'Tavoite ei vielä täyty';
-        els.required.textContent=req?req.toLocaleString('fi-FI'):'yli 20 000';
-        els.requiredContext.textContent=fmtPct(target)+' voimaan';
+        els.required.textContent=noEffect?'ei saavutettavissa':(req?req.toLocaleString('fi-FI'):'yli 20 000');
+        els.requiredContext.textContent=noEffect?'kun d = 0':fmtPct(target)+' voimaan';
         els.perGroup.textContent=Math.floor(N/k).toLocaleString('fi-FI');
         const diff=req?req-N:null;
-        els.detail.textContent=p>=target
-          ? `Nykyinen otos ylittää ${fmtPct(target)} tavoitteen noin ${Math.max(0,N-req).toLocaleString('fi-FI')} havainnolla.`
-          : `Tavoitteen saavuttaminen edellyttää samoilla oletuksilla noin ${diff.toLocaleString('fi-FI')} lisähavaintoa.`;
+        els.detail.textContent=noEffect
+          ? `Kun d = 0, ryhmien välillä ei ole todellista eroa. Tilastollinen voima on tällöin merkitsevyystason mukainen ${fmtPct(p)}, eikä ${fmtPct(target)} tavoitetta voida saavuttaa otoskokoa kasvattamalla.`
+          : p>=target
+            ? `Nykyinen otos ylittää ${fmtPct(target)} tavoitteen noin ${Math.max(0,N-req).toLocaleString('fi-FI')} havainnolla.`
+            : req
+              ? `Tavoitteen saavuttaminen edellyttää samoilla oletuksilla noin ${diff.toLocaleString('fi-FI')} lisähavaintoa.`
+              : `Tavoitteen saavuttaminen edellyttää samoilla oletuksilla yli 20 000 havaintoa.`;
 
         const width=Math.max(320,els.chart.clientWidth||700), height=330;
         const margin={top:18,right:34,bottom:52,left:64};

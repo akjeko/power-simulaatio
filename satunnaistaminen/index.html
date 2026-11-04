@@ -71,7 +71,7 @@
       </select>
     </label>
     <button id="rs-run" class="btn btn-primary" type="button">Satunnaista uudelleen</button>
-    <button id="rs-repeat" class="btn" type="button">Toista 200 kertaa</button>
+    <button id="rs-repeat" class="btn" type="button">Vertaa otoskokoja</button>
   </div>
 
   <div class="viz-grid" aria-live="polite">
@@ -103,7 +103,14 @@
     </table>
   </div>
 
-  <p id="rs-repeat-result" class="text-small" aria-live="polite"></p>
+  <section id="rs-size-effect" class="card" aria-labelledby="rs-size-title">
+    <h3 id="rs-size-title">Otoskoon vaikutus ryhmäeroihin</h3>
+    <p class="text-small text-muted">Keskimääräinen suurin prosenttiyksikköero 200 ryhmäjaossa kullakin otoskoolla.</p>
+    <div id="rs-size-bars" aria-live="polite">
+      <p class="text-muted">Paina <strong>Vertaa otoskokoja</strong>.</p>
+    </div>
+    <p id="rs-repeat-result" class="text-small" aria-live="polite"></p>
+  </section>
   <p id="rs-takeaway"><strong>Arvioi toteutusta:</strong> käytettiinkö suunniteltua satunnaismenetelmää ja päätyikö jokainen havainto yhteen ryhmään? Taustamuuttujien prosenttiyksikköerot kuvaavat toteutuneen jaon sattumanvaraista epätasapainoa.</p>
 </div>
 
@@ -121,7 +128,18 @@
   #randomization-sim .rs-g2 { fill: var(--viz-series-2); }
   #randomization-sim .rs-g3 { fill: var(--viz-series-3); }
   #randomization-sim .rs-line { stroke: var(--border); stroke-width: 2; }
-  #randomization-sim #rs-repeat-result { min-height: 22px; margin: 8px 0; }
+  #randomization-sim #rs-size-effect { margin: 18px 0 12px; }
+  #randomization-sim #rs-size-effect h3 { margin: 0 0 4px; font-size: 1.2rem; }
+  #randomization-sim #rs-size-bars { margin-top: 14px; }
+  #randomization-sim .rs-size-row { display: grid; grid-template-columns: 72px minmax(120px,1fr) 92px; gap: 12px; align-items: center; margin: 11px 0; }
+  #randomization-sim .rs-size-label { font-weight: 700; }
+  #randomization-sim .rs-size-track { height: 24px; background: var(--muted); border-radius: 6px; overflow: hidden; }
+  #randomization-sim .rs-size-bar { height: 100%; border-radius: 6px; transition: width .35s ease; }
+  #randomization-sim .rs-size-row:nth-child(1) .rs-size-bar { background: var(--viz-series-2); }
+  #randomization-sim .rs-size-row:nth-child(2) .rs-size-bar { background: var(--viz-series-1); }
+  #randomization-sim .rs-size-row:nth-child(3) .rs-size-bar { background: var(--viz-series-3); }
+  #randomization-sim .rs-size-value { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #randomization-sim #rs-repeat-result { min-height: 22px; margin: 14px 0 0; }
   #randomization-sim #rs-takeaway { margin-top: 10px; }
   @media (max-width: 560px) {
     #randomization-sim .viz-controls { align-items: stretch; }
@@ -142,8 +160,11 @@
   const headEl = root.querySelector('#rs-head');
   const bodyEl = root.querySelector('#rs-body');
   const repeatEl = root.querySelector('#rs-repeat-result');
+  const sizeBarsEl = root.querySelector('#rs-size-bars');
+  const repeatButton = root.querySelector('#rs-repeat');
   const svg = root.querySelector('#rs-chart');
   let current = null;
+  let comparisonKey = null;
 
   const labels = ['A', 'B', 'C'];
   const variables = [
@@ -285,27 +306,53 @@
     diffCountEl.textContent = current.overTen + ' / ' + current.rows.length;
     headEl.innerHTML = '<th>Taustamuuttuja</th>' + labels.slice(0, k).map((l, i) => `<th class="text-end">Ryhmä ${l}<br><span class="text-small text-muted">n=${current.groups[i].length}</span></th>`).join('') + '<th class="text-end">Suurin ero<br><span class="text-small text-muted">prosenttiyks.</span></th>';
     bodyEl.innerHTML = current.rows.map(row => `<tr><th>${row.label}</th>${row.means.map(m => `<td class="text-end">${fmt(m, row.digits)}</td>`).join('')}<td class="text-end">${fmt(row.maxDiff, 1)}</td></tr>`).join('');
-    repeatEl.textContent = '';
+    if (comparisonKey && comparisonKey !== `${k}-${method}`) {
+      comparisonKey = null;
+      sizeBarsEl.innerHTML = '<p class="text-muted">Asetukset muuttuivat. Paina <strong>Vertaa otoskokoja</strong>.</p>';
+      repeatEl.textContent = '';
+    }
     drawChart(current, k);
   }
 
-  function repeat() {
-    const n = +nInput.value;
+  async function repeat() {
     const k = +groupsInput.value;
     const method = methodInput.value;
-    let anyLargeDifference = 0;
-    let avgMaxDiff = 0;
-    for (let i = 0; i < 200; i++) {
-      const s = summarize(assign(makePopulation(n), k, method), k);
-      if (s.maxDiff > 10) anyLargeDifference++;
-      avgMaxDiff += s.maxDiff;
-    }
-    avgMaxDiff /= 200;
-    repeatEl.innerHTML = `<strong>200 toistoa:</strong> vähintään yksi yli 10 prosenttiyksikön ero esiintyi ${anyLargeDifference} jaossa (${fmt(anyLargeDifference / 2, 1)} %). Keskimääräinen suurin ero oli ${fmt(avgMaxDiff, 1)} prosenttiyksikköä.`;
+    const sampleSizes = [120, 600, 3000];
+    const originalLabel = repeatButton.textContent;
+    repeatButton.disabled = true;
+    repeatButton.textContent = 'Lasketaan…';
+    sizeBarsEl.innerHTML = '<p class="text-muted">Simuloidaan 200 ryhmäjakoa kullakin otoskoolla…</p>';
+    repeatEl.textContent = '';
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    const results = sampleSizes.map(n => {
+      let totalMaxDiff = 0;
+      for (let i = 0; i < 200; i++) {
+        totalMaxDiff += summarize(assign(makePopulation(n), k, method), k).maxDiff;
+      }
+      return { n, average: totalMaxDiff / 200 };
+    });
+
+    const largest = Math.max(...results.map(d => d.average));
+    sizeBarsEl.innerHTML = results.map(d => {
+      const width = Math.max(3, d.average / largest * 100);
+      return `<div class="rs-size-row">
+        <div class="rs-size-label">N = ${d.n.toLocaleString('fi-FI')}</div>
+        <div class="rs-size-track" aria-hidden="true"><div class="rs-size-bar" style="width:${width}%"></div></div>
+        <div class="rs-size-value">${fmt(d.average, 1)} %-yks.</div>
+      </div>`;
+    }).join('');
+
+    repeatEl.innerHTML = method === 'random'
+      ? '<strong>Havainto:</strong> satunnaiset ryhmäerot pienenevät keskimäärin, kun otoskoko kasvaa.'
+      : '<strong>Havainto:</strong> suurempi otos ei poista ryhmäänjaon aiheuttamaa systemaattista eroa.';
+    comparisonKey = `${k}-${method}`;
+    repeatButton.disabled = false;
+    repeatButton.textContent = originalLabel;
   }
 
   root.querySelector('#rs-run').addEventListener('click', render);
-  root.querySelector('#rs-repeat').addEventListener('click', repeat);
+  repeatButton.addEventListener('click', repeat);
   nInput.addEventListener('input', () => { nValue.textContent = (+nInput.value).toLocaleString('fi-FI'); });
   nInput.addEventListener('change', render);
   groupsInput.addEventListener('change', render);

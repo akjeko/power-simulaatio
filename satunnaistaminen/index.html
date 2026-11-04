@@ -81,14 +81,14 @@
       <div id="rs-status-detail" class="text-small text-muted">Kaikki havainnot jaettiin riippumatta taustatekijöistä.</div>
     </div>
     <div class="card viz-stat">
-      <div class="text-muted">Suurin standardoitu ero</div>
-      <div id="rs-smd" class="viz-stat-value tabular-nums">0,00</div>
-      <div class="text-small text-muted">Kuvaa tämän toteutuneen jaon epätasapainoa.</div>
+      <div class="text-muted">Suurin prosenttiyksikköero</div>
+      <div id="rs-smd" class="viz-stat-value tabular-nums">0,0</div>
+      <div class="text-small text-muted">Taustamuuttujat on muunnettu asteikolle 0–100.</div>
     </div>
     <div class="card viz-stat">
-      <div class="text-muted">Pienin tasapainotestin p-arvo</div>
-      <div id="rs-p" class="viz-stat-value tabular-nums">0,000</div>
-      <div class="text-small text-muted">Ei ratkaise, onnistuiko satunnaistaminen.</div>
+      <div class="text-muted">Yli 10 prosenttiyksikön erot</div>
+      <div id="rs-diff-count" class="viz-stat-value tabular-nums">0 / 3</div>
+      <div class="text-small text-muted">Havainnollistava raja, ei satunnaistamisen testi.</div>
     </div>
   </div>
 
@@ -104,7 +104,7 @@
   </div>
 
   <p id="rs-repeat-result" class="text-small" aria-live="polite"></p>
-  <p id="rs-takeaway"><strong>Arvioi toteutusta:</strong> käytettiinkö suunniteltua satunnaismenetelmää ja päätyikö jokainen havainto yhteen ryhmään? Ryhmäerot kuvaavat toteutuneen jaon sattumanvaraista epätasapainoa.</p>
+  <p id="rs-takeaway"><strong>Arvioi toteutusta:</strong> käytettiinkö suunniteltua satunnaismenetelmää ja päätyikö jokainen havainto yhteen ryhmään? Taustamuuttujien prosenttiyksikköerot kuvaavat toteutuneen jaon sattumanvaraista epätasapainoa.</p>
 </div>
 
 <style>
@@ -138,7 +138,7 @@
   const statusEl = root.querySelector('#rs-status');
   const statusDetailEl = root.querySelector('#rs-status-detail');
   const smdEl = root.querySelector('#rs-smd');
-  const pEl = root.querySelector('#rs-p');
+  const diffCountEl = root.querySelector('#rs-diff-count');
   const headEl = root.querySelector('#rs-head');
   const bodyEl = root.querySelector('#rs-body');
   const repeatEl = root.querySelector('#rs-repeat-result');
@@ -147,9 +147,9 @@
 
   const labels = ['A', 'B', 'C'];
   const variables = [
-    { key: 'age', label: 'Ikä', digits: 1 },
-    { key: 'attitude', label: 'Lähtöasenne (1–5)', digits: 2 },
-    { key: 'woman', label: 'Naisten osuus', digits: 2 }
+    { key: 'age', label: 'Ikä', digits: 1, min: 18, max: 80 },
+    { key: 'attitude', label: 'Lähtöasenne (1–5)', digits: 2, min: 1, max: 5 },
+    { key: 'woman', label: 'Naisten osuus', digits: 2, min: 0, max: 1 }
   ];
 
   function randomNormal(mean, sd) {
@@ -206,23 +206,22 @@
     const rows = variables.map(v => {
       const arrays = groups.map(g => g.map(d => d[v.key]));
       const means = arrays.map(mean);
-      let maxSmd = 0;
-      let minP = 1;
+      const range = v.max - v.min;
+      let maxDiff = 0;
       for (let a = 0; a < k; a++) for (let b = a + 1; b < k; b++) {
-        const va = variance(arrays[a]);
-        const vb = variance(arrays[b]);
-        const pooled = Math.sqrt((va + vb) / 2) || 1;
-        const smd = Math.abs(means[a] - means[b]) / pooled;
-        maxSmd = Math.max(maxSmd, smd);
-        const se = Math.sqrt(va / arrays[a].length + vb / arrays[b].length) || 1;
-        minP = Math.min(minP, normalTwoSided((means[a] - means[b]) / se));
+        const difference = Math.abs(means[a] - means[b]) / range * 100;
+        maxDiff = Math.max(maxDiff, difference);
       }
-      const all = pop.map(d => d[v.key]);
-      const totalMean = mean(all);
-      const totalSd = Math.sqrt(variance(all)) || 1;
-      return { ...v, means, maxSmd, minP, standardized: means.map(m => (m - totalMean) / totalSd) };
+      const totalMean = mean(pop.map(d => d[v.key]));
+      const percentDeviation = means.map(m => (m - totalMean) / range * 100);
+      return { ...v, means, maxDiff, percentDeviation };
     });
-    return { groups, rows, maxSmd: Math.max(...rows.map(r => r.maxSmd)), minP: Math.min(...rows.map(r => r.minP)) };
+    return {
+      groups,
+      rows,
+      maxDiff: Math.max(...rows.map(r => r.maxDiff)),
+      overTen: rows.filter(r => r.maxDiff > 10).length
+    };
   }
 
   function fmt(x, digits = 2) { return x.toFixed(digits).replace('.', ','); }
@@ -234,17 +233,18 @@
     const right = 24;
     const top = 28;
     const rowGap = 48;
-    const x = z => left + ((Math.max(-1, Math.min(1, z)) + 1) / 2) * (width - left - right);
+    const limit = 50;
+    const x = value => left + ((Math.max(-limit, Math.min(limit, value)) + limit) / (2 * limit)) * (width - left - right);
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    svg.innerHTML = `<title id="rs-chart-title">Ryhmien standardoidut taustamuuttujien keskiarvot</title><desc id="rs-chart-desc">Nolla tarkoittaa koko otoksen keskiarvoa. Pisteet näyttävät ryhmien poikkeamat keskihajontoina.</desc>`;
-    [-1, -0.5, 0, 0.5, 1].forEach(t => {
+    svg.innerHTML = `<title id="rs-chart-title">Ryhmien poikkeamat koko otoksen keskiarvosta</title><desc id="rs-chart-desc">Taustamuuttujat on muunnettu asteikolle 0–100. Pisteet näyttävät ryhmien poikkeamat koko otoksen keskiarvosta prosenttiyksikköinä.</desc>`;
+    [-50, -25, 0, 25, 50].forEach(t => {
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('x1', x(t)); line.setAttribute('x2', x(t));
       line.setAttribute('y1', 18); line.setAttribute('y2', height - 24);
       line.setAttribute('class', t === 0 ? 'rs-zero' : 'rs-axis');
       svg.appendChild(line);
       const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      tx.setAttribute('x', x(t)); tx.setAttribute('y', height - 6); tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('class', 'rs-tick'); tx.textContent = fmt(t, 1);
+      tx.setAttribute('x', x(t)); tx.setAttribute('y', height - 6); tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('class', 'rs-tick'); tx.textContent = fmt(t, 0);
       svg.appendChild(tx);
     });
     summary.rows.forEach((row, r) => {
@@ -254,19 +254,19 @@
       svg.appendChild(label);
       if (k > 1) {
         const span = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        span.setAttribute('x1', x(Math.min(...row.standardized))); span.setAttribute('x2', x(Math.max(...row.standardized)));
+        span.setAttribute('x1', x(Math.min(...row.percentDeviation))); span.setAttribute('x2', x(Math.max(...row.percentDeviation)));
         span.setAttribute('y1', y); span.setAttribute('y2', y); span.setAttribute('class', 'rs-line'); svg.appendChild(span);
       }
-      row.standardized.forEach((z, g) => {
-        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        c.setAttribute('cx', x(z)); c.setAttribute('cy', y); c.setAttribute('r', 7); c.setAttribute('class', `rs-g${g + 1}`);
-        c.setAttribute('data-tooltip', `Ryhmä ${labels[g]}: ${fmt(z, 2)} keskihajontaa koko otoksen keskiarvosta`);
-        svg.appendChild(c);
+      row.percentDeviation.forEach((value, g) => {
+        const point = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        point.setAttribute('cx', x(value)); point.setAttribute('cy', y); point.setAttribute('r', 7); point.setAttribute('class', `rs-g${g + 1}`);
+        point.setAttribute('data-tooltip', `Ryhmä ${labels[g]}: ${fmt(value, 1)} prosenttiyksikköä koko otoksen keskiarvosta`);
+        svg.appendChild(point);
       });
     });
     const axisTitle = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     axisTitle.setAttribute('x', (left + width - right) / 2); axisTitle.setAttribute('y', height - 6); axisTitle.setAttribute('dy', '-14'); axisTitle.setAttribute('text-anchor', 'middle'); axisTitle.setAttribute('class', 'rs-tick');
-    axisTitle.textContent = 'Poikkeama koko otoksen keskiarvosta (keskihajontaa)'; svg.appendChild(axisTitle);
+    axisTitle.textContent = 'Poikkeama koko otoksen keskiarvosta (prosenttiyksikköä)'; svg.appendChild(axisTitle);
   }
 
   function render() {
@@ -281,10 +281,10 @@
       ? 'Kaikki havainnot jaettiin riippumatta taustatekijöistä.'
       : 'Lähtöasenne ja ikä vaikuttavat ryhmään sijoittumiseen.';
     statusEl.classList.toggle('text-destructive', method !== 'random');
-    smdEl.textContent = fmt(current.maxSmd, 2);
-    pEl.textContent = current.minP < 0.001 ? '< 0,001' : fmt(current.minP, 3);
-    headEl.innerHTML = '<th>Taustamuuttuja</th>' + labels.slice(0, k).map((l, i) => `<th class="text-end">Ryhmä ${l}<br><span class="text-small text-muted">n=${current.groups[i].length}</span></th>`).join('') + '<th class="text-end">Suurin ero</th><th class="text-end">p-arvo</th>';
-    bodyEl.innerHTML = current.rows.map(row => `<tr><th>${row.label}</th>${row.means.map(m => `<td class="text-end">${fmt(m, row.digits)}</td>`).join('')}<td class="text-end">${fmt(row.maxSmd, 2)}</td><td class="text-end">${row.minP < 0.001 ? '&lt; 0,001' : fmt(row.minP, 3)}</td></tr>`).join('');
+    smdEl.textContent = fmt(current.maxDiff, 1) + ' %-yks.';
+    diffCountEl.textContent = current.overTen + ' / ' + current.rows.length;
+    headEl.innerHTML = '<th>Taustamuuttuja</th>' + labels.slice(0, k).map((l, i) => `<th class="text-end">Ryhmä ${l}<br><span class="text-small text-muted">n=${current.groups[i].length}</span></th>`).join('') + '<th class="text-end">Suurin ero<br><span class="text-small text-muted">prosenttiyks.</span></th>';
+    bodyEl.innerHTML = current.rows.map(row => `<tr><th>${row.label}</th>${row.means.map(m => `<td class="text-end">${fmt(m, row.digits)}</td>`).join('')}<td class="text-end">${fmt(row.maxDiff, 1)}</td></tr>`).join('');
     repeatEl.textContent = '';
     drawChart(current, k);
   }
@@ -293,15 +293,15 @@
     const n = +nInput.value;
     const k = +groupsInput.value;
     const method = methodInput.value;
-    let anySmallP = 0;
-    let avgMaxSmd = 0;
+    let anyLargeDifference = 0;
+    let avgMaxDiff = 0;
     for (let i = 0; i < 200; i++) {
       const s = summarize(assign(makePopulation(n), k, method), k);
-      if (s.minP < 0.05) anySmallP++;
-      avgMaxSmd += s.maxSmd;
+      if (s.maxDiff > 10) anyLargeDifference++;
+      avgMaxDiff += s.maxDiff;
     }
-    avgMaxSmd /= 200;
-    repeatEl.innerHTML = `<strong>200 toistoa:</strong> ainakin yksi p-arvo oli alle 0,05 yhteensä ${anySmallP} jaossa (${fmt(anySmallP / 2, 1)} %). Keskimääräinen suurin standardoitu ero oli ${fmt(avgMaxSmd, 2)}.`;
+    avgMaxDiff /= 200;
+    repeatEl.innerHTML = `<strong>200 toistoa:</strong> vähintään yksi yli 10 prosenttiyksikön ero esiintyi ${anyLargeDifference} jaossa (${fmt(anyLargeDifference / 2, 1)} %). Keskimääräinen suurin ero oli ${fmt(avgMaxDiff, 1)} prosenttiyksikköä.`;
   }
 
   root.querySelector('#rs-run').addEventListener('click', render);
